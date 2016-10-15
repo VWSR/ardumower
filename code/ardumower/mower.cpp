@@ -39,8 +39,6 @@
 #include "config.h"
 #ifdef USE_MOWER
 
-#include "NewPing.h"
-
 #include <Arduino.h>
 #include "mower.h"
 #include "due.h"
@@ -80,8 +78,6 @@
 #define pinPerimeterRight A4       // perimeter
 #define pinPerimeterLeft A5
 
-#define pinGreenLED 6              // DuoLED green
-#define pinRedLED 7                // DuoLED red
 #define pinLED 13                  // LED
 #define pinBuzzer 53               // Buzzer
 #define pinTilt 35                 // Tilt sensor (required for TC-G158 board)
@@ -134,17 +130,17 @@ Mower robot;
 Mower::Mower(){
   name = "Ardumower";
   // ------- wheel motors -----------------------------
-  motorAccel       = 1000;  // motor wheel acceleration - only functional when odometry is not in use (warning: do not set too low)
-  motorSpeedMaxRpm       = 25;   // motor wheel max RPM (WARNING: do not set too high, so there's still speed control when battery is low!)
+  motorAccel       = 500;  // motor wheel acceleration - only functional when odometry is not in use (warning: do not set too low)
+  motorSpeedMaxRpm       = 30;   // motor wheel max RPM (WARNING: do not set too high, so there's still speed control when battery is low!)
   motorSpeedMaxPwm    = 255;  // motor wheel max Pwm  (8-bit PWM=255, 10-bit PWM=1023)
   motorPowerMax     = 75;    // motor wheel max power (Watt)
   motorSenseRightScale = 15.3; // motor right sense scale (mA=(ADC-zero)/scale)
   motorSenseLeftScale = 15.3; // motor left sense scale  (mA=(ADC-zero)/scale)
   motorPowerIgnoreTime = 2000; // time to ignore motor power (ms)
-  motorZeroSettleTime   = 3000 ; // how long (ms) to wait for motors to settle at zero speed
-  motorRollTimeMax    = 1500;  // max. roll time (ms)
-  motorRollTimeMin    = 750; //min. roll time (ms) should be smaller than motorRollTimeMax
-  motorReverseTime    = 1200;  // max. reverse time (ms)
+  motorZeroSettleTime   = 50 ; // how long (ms) to wait for motors to settle at zero speed
+  motorRollTimeMax    = 1000;  // max. roll time (ms)
+  motorRollTimeMin    = 500; //min. roll time (ms) should be smaller than motorRollTimeMax
+  motorReverseTime    = 100;  // max. reverse time (ms)
   motorForwTimeMax   = 80000; // max. forward time (ms) / timeout
   motorBiDirSpeedRatio1 = 0.3;   // bidir mow pattern speed ratio 1
   motorBiDirSpeedRatio2 = 0.92;   // bidir mow pattern speed ratio 2
@@ -162,15 +158,15 @@ Mower::Mower(){
   // ------ mower motor -------------------------------
   motorMowAccel       = 2000;  // motor mower acceleration (warning: do not set too low) 2000 seems to fit best considerating start time and power consumption 
   motorMowSpeedMaxPwm   = 255;    // motor mower max PWM
-  motorMowPowerMax = 75.0;     // motor mower max power (Watt)
-  motorMowModulate  = 0;      // motor mower cutter modulation?
+  motorMowPowerMax = 33.0;     // motor mower max power (Watt)
+  motorMowModulate  = 1;      // motor mower cutter modulation?
   motorMowRPMSet        = 3300;   // motor mower RPM (only for cutter modulation)
   motorMowSenseScale = 15.3; // motor mower sense scale (mA=(ADC-zero)/scale)
   motorMowPID.Kp = 0.005;    // motor mower RPM PID controller
   motorMowPID.Ki = 0.01;
   motorMowPID.Kd = 0.01;
   //  ------ bumper -----------------------------------
-  bumperUse         = 0;      // has bumpers?
+  bumperUse         = 1;      // has bumpers?
   //  ------ drop -----------------------------------
   dropUse          = 0;     // has drops?                                                                                              Dropsensor - Absturzsensor vorhanden ?
   dropcontact      = 1;     //contact 0-openers 1-closers                                                                              Dropsensor - Kontakt 0-Öffner - 1-Schließer betätigt gegen GND
@@ -183,16 +179,16 @@ Mower::Mower(){
   sonarCenterUse    = 0;
   sonarTriggerBelow = 1050;    // ultrasonic sensor trigger distance
   // ------ perimeter ---------------------------------
-  perimeterUse       = 0;      // use perimeter?    
+  perimeterUse       = 1;      // use perimeter?    
   perimeterTriggerTimeout = 0;      // perimeter trigger timeout when escaping from inside (ms)  
-  perimeterOutRollTimeMax  = 2000;   // roll time max after perimeter out (ms)
-  perimeterOutRollTimeMin = 750;    // roll time min after perimeter out (ms)
-  perimeterOutRevTime   = 2200;   // reverse time after perimeter out (ms)
+  perimeterOutRollTimeMax  = 900;   // roll time max after perimeter out (ms)
+  perimeterOutRollTimeMin = 800;    // roll time min after perimeter out (ms)
+  perimeterOutRevTime   = 100;   // reverse time after perimeter out (ms)
   perimeterTrackRollTime = 1500; //roll time during perimeter tracking
-  perimeterTrackRevTime = 2200;  // reverse time during perimeter tracking
-  perimeterPID.Kp    = 51.0;  // perimeter PID controller
-  perimeterPID.Ki    = 12.5;
-  perimeterPID.Kd    = 0.8;  
+  perimeterTrackRevTime = 2000;  // reverse time during perimeter tracking
+  perimeterPID.Kp    = 40.0;  // perimeter PID controller
+  perimeterPID.Ki    = 9.0;
+  perimeterPID.Kd    = 0.0;  
   trackingPerimeterTransitionTimeOut = 2000;
   trackingErrorTimeOut = 10000;
   trackingBlockInnerWheelWhilePerimeterStruggling = 1;
@@ -211,15 +207,15 @@ Mower::Mower(){
   remoteUse         = 1;       // use model remote control (R/C)?
   // ------ battery -------------------------------------
   batMonitor = 1;              // monitor battery and charge voltage?
-  batGoHomeIfBelow = 23.7;     // drive home voltage (Volt)
+  batGoHomeIfBelow = 23.0;     // drive home voltage (Volt)
   batSwitchOffIfBelow = 21.7;  // switch off battery if below voltage (Volt)
   batSwitchOffIfIdle = 1;      // switch off battery if idle (minutes)
-  batFactor       = 0.495;      // battery conversion factor  / 10 due to arduremote bug, can be removed after fixing (look in robot.cpp)
-  batChgFactor    = 0.495;      // battery conversion factor  / 10 due to arduremote bug, can be removed after fixing (look in robot.cpp)
+  batFactor       = 0.51;      // battery conversion factor  / 10 due to arduremote bug, can be removed after fixing (look in robot.cpp)
+  batChgFactor    = 0.51;      // battery conversion factor  / 10 due to arduremote bug, can be removed after fixing (look in robot.cpp)
   batFull          =29.4;      // battery reference Voltage (fully charged) PLEASE ADJUST IF USING A DIFFERENT BATTERY VOLTAGE! FOR a 12V SYSTEM TO 14.4V
   batChargingCurrentMax =1.6;  // maximum current your charger can devliver
   batFullCurrent  = 0.3;      // current flowing when battery is fully charged
-  startChargingIfBelow = 27.0; // start charging if battery Voltage is below
+  startChargingIfBelow = 29.4; // start charging if battery Voltage is below
   chargingTimeout = 12600000; // safety timer for charging (ms) 12600000 = 3.5hrs
   // Sensorausgabe Konsole      (chgSelection =0)
   // Einstellungen ACS712 5A    (chgSelection =1   /   chgSenseZero ~ 511    /    chgFactor = 39    /    chgSense =185.0    /    chgChange = 0 oder 1    (je nach  Stromrichtung)   /   chgNull  = 2)
@@ -231,18 +227,18 @@ Mower::Mower(){
   chgChange       = 0;          // Messwertumkehr von - nach +         1 oder 0
   chgNull         = 2;          // Nullduchgang abziehen (1 oder 2)
   // ------  charging station ---------------------------
-  stationRevTime     = 1800;    // charge station reverse time (ms)
+  stationRevTime     = 2500;    // charge station reverse time (ms)
   stationRollTime    = 1000;    // charge station roll time (ms)
   stationForwTime    = 1500;    // charge station forward time (ms)
   stationCheckTime   = 1700;    // charge station reverse check time (ms)
   // ------ odometry ------------------------------------
-  odometryUse       = 1;       // use odometry?
+  odometryUse       = 0;       // use odometry?
   twoWayOdometrySensorUse = 0; // use optional two-wire odometry sensor?
-  odometryTicksPerRevolution = 1060;   // encoder ticks per one full resolution
-  odometryTicksPerCm = 13.49;  // encoder ticks per cm
-  odometryWheelBaseCm = 36;    // wheel-to-wheel distance (cm)
-  odometryRightSwapDir = 0;       // inverse right encoder direction?
-  odometryLeftSwapDir  = 1;       // inverse left encoder direction?
+  odometryTicksPerRevolution = 300;   // encoder ticks per one full resolution
+  odometryTicksPerCm = 4.1;  // encoder ticks per cm
+  odometryWheelBaseCm = 46;    // wheel-to-wheel distance (cm)
+  odometryRightSwapDir = 1;       // inverse right encoder direction?
+  odometryLeftSwapDir  = 0;       // inverse left encoder direction?
   // ----- GPS -------------------------------------------
   gpsUse            = 0;       // use GPS?
   stuckIfGpsSpeedBelow = 0.2; // if Gps speed is below given value the mower is stuck
@@ -260,7 +256,7 @@ Mower::Mower(){
   bluetoothUse      = 1;       // use Bluetooth module?
   // ----- esp8266 ---------------------------------------
   esp8266Use        = 0;       // use ESP8266 Wifi module?
-  esp8266ConfigString = "123test321";
+  esp8266ConfigString = "";
   // ------ mower stats-------------------------------------------  
   statsOverride = false; // if set to true mower stats are overwritten - be careful
   statsMowTimeMinutesTotal = 300;
@@ -305,9 +301,7 @@ ISR(PCINT2_vect){
 // mower motor speed sensor interrupt
 //void rpm_interrupt(){
 //}
- NewPing NewSonarLeft(pinSonarLeftTrigger, pinSonarLeftEcho, 500);
- NewPing NewSonarRight(pinSonarRightTrigger, pinSonarRightEcho, 500);
- NewPing NewSonarCenter(pinSonarCenterTrigger, pinSonarCenterEcho, 500);
+
 
 // WARNING: never use 'Serial' in the Ardumower code - use 'Console' instead
 // (required so we can use Arduino Due native port)
@@ -426,120 +420,25 @@ void Mower::setup(){
     PWMC_ConfigureClocks(3900 * PWM_MAX_DUTY_CYCLE, 0, VARIANT_MCK);   // 3.9 Khz  
   #endif  
 
-  
-    
-  // ADC
-  ADCMan.init();
-  ADCMan.setCapture(pinChargeCurrent, 1, true);//Aktivierung des LaddeStrom Pins beim ADC-Managers      
-  ADCMan.setCapture(pinMotorMowSense, 1, true);
-  ADCMan.setCapture(pinMotorLeftSense, 1, true);
-  ADCMan.setCapture(pinMotorRightSense, 1, true);
-  ADCMan.setCapture(pinBatteryVoltage, 1, false);
-  ADCMan.setCapture(pinChargeVoltage, 1, false);  
-  ADCMan.setCapture(pinVoltageMeasurement, 1, false);    
-  perimeter.setPins(pinPerimeterLeft, pinPerimeterRight);      
-    
-  imu.init(pinBuzzer);
-	  
-  gps.init();
-
-  Robot::setup();  
-
-  if (esp8266Use) {
-    Console.println(F("Sending ESP8266 Config"));
-    ESP8266port.begin(ESP8266_BAUDRATE);
-    ESP8266port.println(esp8266ConfigString);
-    ESP8266port.flush();
-    ESP8266port.end();
-    rc.initSerial(&Serial1, ESP8266_BAUDRATE);
-  } else if (bluetoothUse) {
-    rc.initSerial(&Bluetooth, BLUETOOTH_BAUDRATE);
-  }
-
-// enable interrupts
-  //-----------------------------------------------------------------------------------------------------------------UweZ geändert Anfang---------------------------------
+  // enable interrupts
   #ifdef __AVR__
     // R/C
     PCICR |= (1<<PCIE0);
-      if (remoteUse==1){                   // überprüfe ob RemoteUse aktiviert ist;
-        bitWrite(PCMSK0, PCINT4, HIGH);  // und wenn ja schreibe eine 1 ins PCMSK0 Register4  "XXX1XXXX" Interrupt PCINT4 Register4 entspricht den Pin 10 des Arduino Mega
-      }
-      else                               // und wenn nicht  
-      {
-      bitWrite(PCMSK0, PCINT4, LOW);     // dann schreibe eine 0 ins PCMSK0 PCINT4 Register4  "XXX0XXXX"                                           
-    }
-     //-----------------------------------------------------------------------------------------------------------------  
-    if (remoteUse==1){                   // überprüfe ob RemoteUse aktiviert ist;
-        bitWrite(PCMSK0, PCINT5, HIGH);  // und wenn ja schreibe eine 1 ins PCMSK0 Register5  "XX1XXXXX" Interrupt PCINT5 Register5 entspricht den Pin 11 des Arduino Mega
-      }
-      else                               // und wenn nicht  
-      {
-      bitWrite(PCMSK0, PCINT5, LOW);     // dann schreibe eine 0 ins PCMSK0 PCINT5 Register5  "XX0XXXXX"                                           
-    }
-    //-----------------------------------------------------------------------------------------------------------------
-    if (remoteUse==1){                   // überprüfe ob RemoteUse aktiviert ist;
-        bitWrite(PCMSK0, PCINT6, HIGH);  // und wenn ja schreibe eine 1 ins PCMSK0 Register6  "X1XXXXXX" Interrupt PCINT6 Register6 entspricht den Pin 12 des Arduino Mega
-      }
-      else                               // und wenn nicht  
-      {
-      bitWrite(PCMSK0, PCINT6, LOW);     // dann schreibe eine 0 ins PCMSK0 PCINT6 Register6  "X0XXXXXX"                                           
-    }
-    //-----------------------------------------------------------------------------------------------------------------
-   if (remoteUse==1){                   // überprüfe ob RemoteUse aktiviert ist;
-        bitWrite(PCMSK0, PCINT1, HIGH);  // und wenn ja schreibe eine 1 ins PCMSK0 Register6  "XXXXXX1X" Interrupt PCINT1 Register6 entspricht den Pin 52 des Arduino Mega
-      }
-      else                               // und wenn nicht  
-      {
-      bitWrite(PCMSK0, PCINT1, LOW);     // dann schreibe eine 0 ins PCMSK0 PCINT1 Register6  "XXXXXX0X"                                           
-    } 
+    PCMSK0 |= (1<<PCINT4);
+    PCMSK0 |= (1<<PCINT5);
+    PCMSK0 |= (1<<PCINT6);
+    PCMSK0 |= (1<<PCINT1);  
     
-   // odometry
+    // odometry
     PCICR |= (1<<PCIE2);
-
-    if (odometryUse==1){                  // überprüfe ob die 1 fache Odemetrie aktiviert ist - Links
-        bitWrite(PCMSK2, PCINT20, HIGH);  // und wenn ja schreibe eine 1 ins PCMSK2 register0  "XXX1XXXX" Interrupt PCINT20 Register4 entspricht den Pin A12 des Arduino Mega
-      }
-      else                               // und wenn nicht  
-      {
-      bitWrite(PCMSK2, PCINT20, LOW);    // dann schreibe eine 0 ins PCMSK2 Register4  "XXX0XXXX"                                           
-    }
-    //-----------------------------------------------------------------------------------------------------------------
-    if (twoWayOdometrySensorUse==1){      // überprüfe ob die twoWayOdometry Odemetrie aktiviert ist - Links
-      bitWrite(PCMSK2, PCINT21, HIGH);    // und wenn ja schreibe eine 1 ins PCMSK2 register1  "XX1XXXXX" Interrupt PCINT21 Register5 entspricht den Pin A13 des Arduino Mega
-    }
-      else                               // und wenn nicht 
-      {
-      bitWrite(PCMSK2, PCINT21, LOW);     // dann schreibe eine 0 ins PCMSK2 register5  "XX0XXXXX"                                          
-    }
-    //-----------------------------------------------------------------------------------------------------------------   
-     if (odometryUse==1){                 // überprüfe ob die 1 fache Odemetrie aktiviert ist - Rechts
-        bitWrite(PCMSK2, PCINT22, HIGH);  // und wenn ja schreibe eine 1 ins PCMSK2 register2  "X1XXXXXX" Interrupt PCINT22 Register6 entspricht den Pin A14 des Arduino Mega
-      }
-      else                               // und wenn nicht  
-      {
-      bitWrite(PCMSK2, PCINT22, LOW);     // dann schreibe eine 0 ins PCMSK2 Register6  "X0XXXXXX"                                           
-    }
-    //-----------------------------------------------------------------------------------------------------------------
-
-    if (twoWayOdometrySensorUse==1){      // überprüfe ob die twoWayOdometry Odemetrie aktiviert ist - Rechts
-      bitWrite(PCMSK2, PCINT23, HIGH);    // und wenn ja schreibe eine 1 ins PCMSK2 Register7  "1XXXXXXX" Interrupt PCINT23 Register7 entspricht den Pin A15 des Arduino Mega
-    }
-      else                               // und wenn nicht 
-      {
-      bitWrite(PCMSK2, PCINT23, LOW);     // dann schreibe eine 0 ins PCMSK2 Register7  "0XXXXXXX"                                          
-    }
+    PCMSK2 |= (1<<PCINT20);
+    PCMSK2 |= (1<<PCINT21);  
+    PCMSK2 |= (1<<PCINT22);
+    PCMSK2 |= (1<<PCINT23);          
     
     // mower motor speed sensor interrupt
     //attachInterrupt(5, rpm_interrupt, CHANGE);
-    //-----------------------------------------------------------------------------------------------------------------   Geändert von PCMSK2 |= (1<<PCINT19);
-     if (motorMowModulate==1){            // überprüfe ob die motorMowModulate aktiviert ist;
-        bitWrite(PCMSK2, PCINT19, HIGH);  // und wenn ja schreibe eine 1 ins PCMSK2 Register3  "XXXX1XXX" Interrupt PCINT23 Register3 entspricht den Pin A11 des Arduino Mega
-      }
-      else                               // und wenn nicht 
-      {
-      bitWrite(PCMSK2, PCINT19, LOW);     // dann schreibe eine 0 ins PCMSK2 Register3  "XXXX0XXX"                                  
-    }
-    //-----------------------------------------------------------------------------------------------------------------UweZ geändert Ende-----------------------------------
+    PCMSK2 |= (1<<PCINT19);  
   #else
     // Due interrupts
     attachInterrupt(pinOdometryLeft, PCINT2_vect, CHANGE);
@@ -555,7 +454,35 @@ void Mower::setup(){
     //attachInterrupt(pinMotorMowRpm, rpm_interrupt, CHANGE);
     attachInterrupt(pinMotorMowRpm, PCINT2_vect, CHANGE);    
   #endif   
-  
+    
+  // ADC
+  ADCMan.init();
+  ADCMan.setCapture(pinChargeCurrent, 1, true);//Aktivierung des LaddeStrom Pins beim ADC-Managers      
+  ADCMan.setCapture(pinMotorMowSense, 1, true);
+  ADCMan.setCapture(pinMotorLeftSense, 1, true);
+  ADCMan.setCapture(pinMotorRightSense, 1, true);
+  ADCMan.setCapture(pinBatteryVoltage, 1, false);
+  ADCMan.setCapture(pinChargeVoltage, 1, false);  
+  ADCMan.setCapture(pinVoltageMeasurement, 1, false);    
+  perimeter.setPins(pinPerimeterLeft, pinPerimeterRight);      
+    
+  if (imuUse)
+	  imu.init(pinBuzzer);
+	  
+  gps.init();
+
+  Robot::setup();  
+
+  if (esp8266Use) {
+    Console.println(F("Sending ESP8266 Config"));
+    ESP8266port.begin(ESP8266_BAUDRATE);
+    ESP8266port.println(esp8266ConfigString);
+    ESP8266port.flush();
+    ESP8266port.end();
+    rc.initSerial(&Serial1, ESP8266_BAUDRATE);
+  } else if (bluetoothUse) {
+    rc.initSerial(&Bluetooth, BLUETOOTH_BAUDRATE);
+  }
 }
 
 void checkMotorFault(){
@@ -632,13 +559,10 @@ int Mower::readSensor(char type){
 
 // sonar---------------------------------------------------------------------------------------------------
     //case SEN_SONAR_CENTER: return(readURM37(pinSonarCenterTrigger, pinSonarCenterEcho)); break;  
-    //case SEN_SONAR_CENTER: return(readHCSR04(pinSonarCenterTrigger, pinSonarCenterEcho)); break;
-    //case SEN_SONAR_LEFT: return(readHCSR04(pinSonarLeftTrigger, pinSonarLeftEcho)); break;
-    //case SEN_SONAR_RIGHT: return(readHCSR04(pinSonarRightTrigger, pinSonarRightEcho)); break;
-    case SEN_SONAR_CENTER: return(NewSonarCenter.ping_cm()); break;
-    case SEN_SONAR_LEFT: return(NewSonarLeft.ping_cm()); break;
-    case SEN_SONAR_RIGHT: return(NewSonarRight.ping_cm()); break;
-    // case SEN_LAWN_FRONT: return(measureLawnCapacity(pinLawnFrontSend, pinLawnFrontRecv)); break;    
+    case SEN_SONAR_CENTER: return(readHCSR04(pinSonarCenterTrigger, pinSonarCenterEcho)); break;
+    case SEN_SONAR_LEFT: return(readHCSR04(pinSonarLeftTrigger, pinSonarLeftEcho)); break;
+    case SEN_SONAR_RIGHT: return(readHCSR04(pinSonarRightTrigger, pinSonarRightEcho)); break;
+   // case SEN_LAWN_FRONT: return(measureLawnCapacity(pinLawnFrontSend, pinLawnFrontRecv)); break;    
     //case SEN_LAWN_BACK: return(measureLawnCapacity(pinLawnBackSend, pinLawnBackRecv)); break;    
     
 // imu-------------------------------------------------------------------------------------------------------
